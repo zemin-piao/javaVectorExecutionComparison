@@ -57,27 +57,6 @@ This study compares the performance of SQL-style aggregation (`SELECT SUM(salary
   - Integer overflow in reduction operations
   - Incorrect accumulation in vector lanes
 
-### 🔍 Confounding Variables
-
-#### 1. **Algorithm Inconsistency**
-- **Problem**: Different implementations across Java versions
-- **Impact**: Not comparing equivalent algorithms
-- **Recommendation**: Use identical scalar baseline across all versions
-
-#### 2. **Memory Allocation Interference**
-- **Problem**: Random data generation during timing measurement
-- **Impact**: GC overhead varies by JVM version
-- **Recommendation**: Pre-allocate data, measure only computation
-
-#### 3. **JVM Warm-up Variability**
-- **Problem**: Inconsistent warm-up across implementations
-- **Impact**: JIT compilation effects skew results
-- **Recommendation**: Standardize warm-up procedure
-
-#### 4. **Result Validation Missing**
-- **Problem**: No correctness verification between implementations
-- **Impact**: Performance gains meaningless if results incorrect
-- **Recommendation**: Mandatory result validation
 
 ---
 
