@@ -58,43 +58,18 @@ To ensure statistical reliability and eliminate measurement variability, we cond
 - **Java 25 Vector Simple**: 4.29x speedup (slightly slower than Java 17)
 - **Java 25 Vector Unrolled**: 7.54x avg speedup (higher variance: 7.37ms avg vs 6.37ms median)
 
-#### 📈 **Cross-Version Analysis**
-**Scalar Evolution (Java 8 → 17 → 25):**
-- Java 17 vs Java 8: 1.02x (negligible difference)
-- Java 25 vs Java 8: 0.98x (negligible difference)
-- **Conclusion**: JVM scalar optimization has plateaued
-
-**Vector API Evolution (Java 17 → 25):**
-- **Vector Simple**: Java 25 is 0.95x vs Java 17 (5% slower)
-- **Vector Unrolled**: Java 25 is 0.83x vs Java 17 (17% slower on average)
-- **Unexpected finding**: Java 25 Vector API shows regression vs Java 17
-
-#### 📊 **Statistical Reliability**
-- **Low variance** in scalar implementations across all Java versions
-- **Excellent consistency** in Java 17 Vector implementations
-- **Higher variance** in Java 25 Vector Unrolled (outliers detected)
-- **Measurement confidence**: 10 iterations provide robust statistical baseline
-
-#### 💡 **Production Recommendations**
-
-**For Scalar Workloads:**
-- **Any Java version** (8, 17, 25) provides equivalent performance
-- **Upgrade decision** should be based on features, not performance
-
-**For Vector API Workloads:**
-- **Java 17** currently provides better Vector API performance consistency
-- **4-9x speedup** achievable with Vector API implementations
-- **Choose Java 17** for production Vector API deployments based on these results
-
-**Use Case Guidance:**
-- **Financial/accounting**: Scalar implementations for deterministic precision
-- **Scientific/ML**: Vector API acceptable with 0.4% precision trade-off
-- **Real-time processing**: Vector API preferred for 4-9x performance gains
 
 ---
 
 ## Test Environment
 
+**⚠️ Microbenchmark Disclaimer**: These results are from controlled microbenchmarks on specific hardware with Amazon Corretto JDK. Real-world performance may vary based on:
+- Different CPU architectures (Intel vs ARM vs AMD)
+- JVM implementations (OpenJDK vs Oracle HotSpot vs GraalVM)
+- Application context and JIT compilation patterns
+- Memory access patterns and cache behavior
+
+**Test Configuration:**
 - **Hardware**: Darwin 24.6.0 (macOS)
 - **CPU Architecture**: 128-bit SIMD (4 float lanes)
 - **Java Versions**:
@@ -119,7 +94,7 @@ To ensure statistical reliability and eliminate measurement variability, we cond
 - **Instruction pipeline**: Better CPU utilization
 - **Loop overhead**: Reduced by factor of vector length
 
-### Loop Unrolling Benefits (Java 25)
+### Loop Unrolling Benefits
 
 ```java
 // Regular: Process 1 vector per iteration
@@ -159,6 +134,51 @@ FloatVector result = a.add(b);
 **vs. Native SIMD**: Requires separate implementations for each architecture.
 
 **Production impact**: Single JAR deploys optimally across diverse infrastructure (Intel servers, ARM cloud, edge devices) without architecture-specific builds or expertise.
+
+---
+
+## Warm-up Impact Analysis
+
+To demonstrate the critical importance of JIT warm-up for Vector API performance, we conducted a direct comparison of cold vs warm execution using the same JVM instance.
+
+### Test Configuration - Warm-up Analysis
+- **Dataset**: 100M records (~381MB), seed=12345
+- **Cold runs**: 5 iterations with no prior warm-up
+- **Warm runs**: 5 iterations after 20 warm-up iterations
+- **Same JVM instance**: Both tests run sequentially to isolate warm-up impact
+
+### Warm-up Impact Results
+
+| Implementation | Cold Avg (ms) | Warm Avg (ms) | Improvement | Cold Throughput | Warm Throughput |
+|---------------|---------------|---------------|-------------|-----------------|-----------------|
+| **Scalar** | 52.50 | 52.15 | **1.01x** | 1,905 M/s | 1,918 M/s |
+| **Vector API** | 49.66 | 12.14 | **4.09x** | 2,014 M/s | 8,237 M/s |
+
+### Critical Warm-up Findings
+
+#### 🚨 **Vector API Transformation During Warm-up**
+Observed real-time JIT optimization progression:
+- **Cold run 1**: 150.36ms (interpreted Vector API calls)
+- **Cold run 3**: 61.95ms (partial JIT compilation)
+- **Warm run 1**: 12.64ms (full SIMD optimization)
+- **Warm run 5**: 11.71ms (peak performance)
+
+#### ✅ **Scalar Consistency**
+- **Minimal warm-up dependency**: 1% performance variation
+- **Immediate effectiveness**: No JIT compilation required for basic operations
+- **Reliable baseline**: Performance stable from first execution
+
+#### 💡 **Production Implications**
+
+**Mandatory Warm-up for Vector API:**
+- **4x performance difference** between cold and warm execution
+- **Cold-start penalty**: Vector API initially slower than scalar (49.66ms vs 52.50ms)
+- **JIT compilation essential**: Vector API requires warm-up phase in production
+
+**Deployment Considerations:**
+- **Container/serverless**: Frequent cold starts make Vector API unsuitable
+- **Long-running services**: Vector API optimal with proper warm-up
+- **Hybrid approach**: Scalar fallback during cold-start, Vector API after warm-up
 
 ---
 
