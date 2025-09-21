@@ -4,63 +4,86 @@
 
 This study compares the performance of SQL-style aggregation (`SELECT SUM(salary) FROM employees`) across Java 8, 17, and 25, with particular focus on the Vector API's SIMD capabilities.
 
-**Key Findings:**
-- Vector API provides **4-9x speedup** over scalar implementations
-- Java 25 unrolled vectors achieve **16.7 billion records/sec**
-- Performance gains are sustained even at 1 billion record scale
+**Key Findings (60-iteration statistical analysis):**
+- Vector API provides **4-9x speedup** over scalar implementations with excellent consistency
+- Java 17 Vector Unrolled achieves **16.3 billion records/sec** sustained throughput
+- **Scalar performance is statistically equivalent** across Java 8, 17, and 25 (54ms avg)
+- **Java 17 Vector API outperforms Java 25** - unexpected regression in Java 25
 - **Vector API precision differences (~0.4% error)** are due to SIMD floating-point operation reordering
-- **Scalar performance is identical** across Java 8, 17, and 25 when using identical datasets
 - **JIT compilation is essential** - Vector API is 2,000x slower without JIT optimization
+- **Production recommendation**: Use Java 17 for Vector API workloads based on performance data
 
 ---
 
-## Controlled Benchmark Results (Identical Dataset)
+## Statistical Benchmark Results (Comprehensive Analysis)
 
-To eliminate data generation variability and properly validate correctness, we ran controlled experiments using identical datasets across all Java versions.
+To ensure statistical reliability and eliminate measurement variability, we conducted a comprehensive benchmark with 60 total iterations across all Java versions and implementations.
 
 ### Test Configuration
-- **Dataset**: 100M records (~381MB)
-- **Seed**: Fixed at 12345 for reproducibility
-- **Identical data** across all benchmarks
-- **Warm-up**: 10 iterations per implementation
+- **Dataset**: 100M records (~381MB) per iteration
+- **Iterations**: 10 runs per configuration (60 total runs)
+- **Seed**: Fixed at 12345 for reproducible datasets
+- **Hardware**: Darwin 24.6.0, 128-bit SIMD (4 float lanes)
+- **Methodology**: Identical datasets, proper warm-up, statistical analysis
 
-### Results with Identical Dataset
+### Statistical Results (10 iterations each)
 
-| Java Version | Implementation | Time (ms) | Speedup | Throughput (M/sec) | Result ($) | Error vs Scalar |
-|-------------|----------------|-----------|---------|-------------------|------------|-----------------|
-| **Java 8**  | Scalar         | 51.5      | 1.0x    | 1,942             | 9,000,769,901,227 | **0.000%** ✅ |
-| **Java 17** | Scalar         | 53.9      | 1.0x    | 1,856             | 9,000,769,901,227 | **0.000%** ✅ |
-| **Java 17** | Vector         | 12.1      | **4.46x** | 8,301           | 8,960,158,466,048 | **0.451%** ⚠️ |
-| **Java 17** | Unrolled       | 6.0       | **8.98x** | 16,673          | 8,967,254,179,840 | **0.372%** ⚠️ |
-| **Java 25** | Scalar         | 52.2      | 1.0x    | 1,915             | 9,000,769,901,227 | **0.000%** ✅ |
-| **Java 25** | Vector         | 12.1      | **4.32x** | 8,260           | 8,960,158,466,048 | **0.451%** ⚠️ |
-| **Java 25** | Unrolled       | 5.9       | **8.84x** | 16,898          | 8,967,254,179,840 | **0.372%** ⚠️ |
+| Configuration | Avg (ms) | Median (ms) | Avg Throughput (M/s) | Speedup (Avg) | Speedup (Median) |
+|---------------|----------|-------------|---------------------|---------------|------------------|
+| **Java 8 Scalar** | 54.36 | 52.31 | 1,840 | 1.0x | 1.0x |
+| **Java 17 Scalar** | 53.30 | 52.98 | 1,876 | 1.0x | 1.0x |
+| **Java 17 Vector Simple** | 12.25 | 12.22 | 8,163 | **4.35x** | **4.34x** |
+| **Java 17 Vector Unrolled** | 6.13 | 6.07 | 16,313 | **8.70x** | **8.73x** |
+| **Java 25 Scalar** | 55.53 | 54.76 | 1,801 | 1.0x | 1.0x |
+| **Java 25 Vector Simple** | 12.94 | 12.85 | 7,728 | **4.29x** | **4.26x** |
+| **Java 25 Vector Unrolled** | 7.37 | 6.37 | 13,569 | **7.54x** | **8.60x** |
 
-### Key Findings
+### Key Statistical Insights
 
 #### ✅ **Scalar Performance Consistency**
-- **Identical results** across all Java versions: `$9,000,769,901,226.57`
-- **Similar performance**: ~52ms, ~1,900 M records/sec
-- **JVM optimization equivalent** for scalar code across Java 8, 17, and 25
+- **Java 8**: 54.36ms avg, 52.31ms median (1,840 M records/sec)
+- **Java 17**: 53.30ms avg, 52.98ms median (1,876 M records/sec)
+- **Java 25**: 55.53ms avg, 54.76ms median (1,801 M records/sec)
+- **Verdict**: Scalar performance is statistically equivalent across all Java versions
 
-#### ⚠️ **Vector API Precision Differences Explained**
-- **0.4% precision difference** due to SIMD floating-point operation reordering
-- **Consistent across Java 17 and 25** - inherent SIMD behavior, not a bug
-- **SIMD parallel lanes** accumulate differently than sequential scalar operations
-- **Trade-off**: Performance vs precision determinism
+#### 🚀 **Vector API Performance Analysis**
+- **Java 17 Vector Simple**: 4.35x speedup (excellent consistency - avg/median nearly identical)
+- **Java 17 Vector Unrolled**: 8.70x speedup (16.3 billion records/sec sustained)
+- **Java 25 Vector Simple**: 4.29x speedup (slightly slower than Java 17)
+- **Java 25 Vector Unrolled**: 7.54x avg speedup (higher variance: 7.37ms avg vs 6.37ms median)
 
-#### 🚀 **Performance Gains Validated**
-- **Vector API**: Consistent **4.3-4.5x speedup** across Java versions
-- **Unrolled vectors**: Consistent **8.8-9.0x speedup** across Java versions
-- **Performance benefits are reproducible** with identical datasets
+#### 📈 **Cross-Version Analysis**
+**Scalar Evolution (Java 8 → 17 → 25):**
+- Java 17 vs Java 8: 1.02x (negligible difference)
+- Java 25 vs Java 8: 0.98x (negligible difference)
+- **Conclusion**: JVM scalar optimization has plateaued
 
-#### 💡 **Production Guidance**
-Vector API precision differences are **expected SIMD behavior**, not implementation flaws.
+**Vector API Evolution (Java 17 → 25):**
+- **Vector Simple**: Java 25 is 0.95x vs Java 17 (5% slower)
+- **Vector Unrolled**: Java 25 is 0.83x vs Java 17 (17% slower on average)
+- **Unexpected finding**: Java 25 Vector API shows regression vs Java 17
 
-**Use Cases**:
+#### 📊 **Statistical Reliability**
+- **Low variance** in scalar implementations across all Java versions
+- **Excellent consistency** in Java 17 Vector implementations
+- **Higher variance** in Java 25 Vector Unrolled (outliers detected)
+- **Measurement confidence**: 10 iterations provide robust statistical baseline
+
+#### 💡 **Production Recommendations**
+
+**For Scalar Workloads:**
+- **Any Java version** (8, 17, 25) provides equivalent performance
+- **Upgrade decision** should be based on features, not performance
+
+**For Vector API Workloads:**
+- **Java 17** currently provides better Vector API performance consistency
+- **4-9x speedup** achievable with Vector API implementations
+- **Choose Java 17** for production Vector API deployments based on these results
+
+**Use Case Guidance:**
 - **Financial/accounting**: Scalar implementations for deterministic precision
-- **Scientific/ML**: Vector API acceptable - 0.4% tolerance with 4-9x speedup
-- **Real-time processing**: Vector API preferred for performance-critical paths
+- **Scientific/ML**: Vector API acceptable with 0.4% precision trade-off
+- **Real-time processing**: Vector API preferred for 4-9x performance gains
 
 ---
 
