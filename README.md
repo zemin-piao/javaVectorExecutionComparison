@@ -8,7 +8,7 @@ This study compares the performance of SQL-style aggregation (`SELECT SUM(salary
 - Vector API provides **4-9x speedup** over scalar implementations
 - Java 25 unrolled vectors achieve **16.7 billion records/sec**
 - Performance gains are sustained even at 1 billion record scale
-- **Critical Issue**: Vector API has precision/overflow problems requiring investigation
+- **Vector API precision differences (~0.4% error)** are due to SIMD floating-point operation reordering
 
 ---
 
@@ -19,7 +19,7 @@ This study compares the performance of SQL-style aggregation (`SELECT SUM(salary
 - **Java Versions**:
   - Java 8: OpenJDK Corretto-8.422.05.1 (No Vector API)
   - Java 17: OpenJDK Corretto-17.0.12.7.1 (Vector API: Incubating)
-  - Java 25: OpenJDK Corretto-25.0.0.36.2 (Vector API: Beta)
+  - Java 25: OpenJDK Corretto-25.0.0.36.2 (Vector API: Incubating)
 - **Vector Species**: `Species[float, 4, S_128_BIT]`
 
 ---
@@ -48,14 +48,13 @@ This study compares the performance of SQL-style aggregation (`SELECT SUM(salary
 
 ---
 
-## Critical Issues Identified
+## Vector API Precision Analysis
 
-### 🚨 Vector API Precision Problems
-- Vector results show massive discrepancies (trillions vs expected ~90 trillion)
-- Potential causes:
-  - Floating-point precision loss in SIMD operations
-  - Integer overflow in reduction operations
-  - Incorrect accumulation in vector lanes
+### 🔍 SIMD Floating-Point Behavior
+- Vector API shows **0.4% precision difference** vs scalar implementations
+- **Root cause**: SIMD operations cannot guarantee floating-point summation order
+- **Expected behavior**: Different accumulation patterns in parallel lanes
+- **Impact**: Acceptable for most applications, critical for financial calculations
 
 
 ---
@@ -112,30 +111,22 @@ for (i = 0; i < bound; i += 4 * vectorLength) {
 
 ---
 
-## Recommendations for Future Testing
+## Key Takeaways
 
-### 1. **Fix Vector API Precision Issues**
-```java
-// Use double precision for accumulation
-double vectorSum = sum.reduceLanes(VectorOperators.ADD);
-```
+### Vector API Performance
+- **4-9x speedup** for array aggregation operations
+- **SIMD hardware utilization** provides genuine performance benefits
+- **JIT compilation essential** - 2,000x slower in interpreted mode
 
-### 2. **Implement Controlled Experiments**
-- Pre-generate identical test data
-- Separate allocation from computation timing
-- Standardize warm-up procedures
-- Add result validation
+### Precision Considerations
+- **0.4% difference** from scalar due to parallel floating-point reduction
+- **Acceptable for most applications** except exact financial calculations
+- **Use double precision** or Kahan summation for higher accuracy when needed
 
-### 3. **Test Different Data Types**
-- `int` arrays (no precision loss)
-- `double` arrays (higher precision)
-- Different vector species (256-bit, 512-bit)
-
-### 4. **Benchmark Real-World Scenarios**
-- Database aggregation queries
-- Image processing operations
-- Scientific computations
-- Machine learning workloads
+### Production Readiness
+- **Java 17**: Incubating API, stable performance
+- **Java 25**: Still incubating, enhanced optimizations (loop unrolling)
+- **Warm-up required** for optimal performance in production
 
 ---
 
@@ -183,23 +174,24 @@ To eliminate data generation variability and properly validate correctness, we r
 - **Similar performance**: ~52ms, ~1,900 M records/sec
 - **JVM optimization equivalent** for scalar code across Java 8, 17, and 25
 
-#### ⚠️ **Vector API Precision Issues Confirmed**
-- **Vector implementations produce different results** than scalar baseline
-- **~0.4% error** - significant for financial calculations
-- **Consistent precision errors** across Java 17 and Java 25
-- **Root cause**: Different floating-point reduction order in SIMD operations
+#### ⚠️ **Vector API Precision Differences Explained**
+- **0.4% precision difference** due to SIMD floating-point operation reordering
+- **Consistent across Java 17 and 25** - inherent SIMD behavior, not a bug
+- **SIMD parallel lanes** accumulate differently than sequential scalar operations
+- **Trade-off**: Performance vs precision determinism
 
 #### 🚀 **Performance Gains Validated**
 - **Vector API**: Consistent **4.3-4.5x speedup** across Java versions
 - **Unrolled vectors**: Consistent **8.8-9.0x speedup** across Java versions
 - **Performance benefits are reproducible** with identical datasets
 
-#### 💡 **Critical Production Insight**
-The **performance gains are legitimate**, but **Vector API has inherent precision trade-offs** compared to scalar summation. This is expected behavior due to different floating-point operation ordering.
+#### 💡 **Production Guidance**
+Vector API precision differences are **expected SIMD behavior**, not implementation flaws.
 
-**Recommendation**:
-- For applications requiring **exact precision** (financial, accounting): Use scalar implementations
-- For applications where **0.4% tolerance is acceptable** and performance is critical: Vector API provides massive benefits
+**Use Cases**:
+- **Financial/accounting**: Scalar implementations for deterministic precision
+- **Scientific/ML**: Vector API acceptable - 0.4% tolerance with 4-9x speedup
+- **Real-time processing**: Vector API preferred for performance-critical paths
 
 ---
 
@@ -309,14 +301,14 @@ Vector API represents a **fundamental shift** in Java performance optimization:
 - **Intrinsics-first design** requires deep JIT integration
 - **Hardware abstraction** achieved through compilation, not runtime adaptation
 
-This explains Vector API's evolution from **incubating** (Java 17) to **beta** (Java 25) - it's pioneering a new approach to hardware acceleration in managed languages that challenges traditional Java performance models.
+This explains Vector API's continued **incubating** status through Java 17 to Java 25 - it's pioneering a new approach to hardware acceleration in managed languages that challenges traditional Java performance models.
 
 ---
 
 ## Conclusions
 
-1. **Vector API delivers significant performance gains** (4-9x) for array processing across both incubating (Java 17) and beta (Java 25) versions
-2. **Java 25 loop unrolling provides additional optimization** beyond basic vectorization, showcasing beta maturity improvements
+1. **Vector API delivers significant performance gains** (4-9x) for array processing across incubating versions (Java 17 and Java 25)
+2. **Java 25 loop unrolling provides additional optimization** beyond basic vectorization, showing continued incubating improvements
 3. **Critical precision issues** exist but are consistent (~0.4% error) and may be acceptable for non-financial applications
 4. **Experimental design needs improvement** to eliminate confounding variables
 5. **Vector API represents a major advancement** in Java's computational capabilities
