@@ -1,0 +1,16 @@
+WARNING: Using incubator modules: jdk.incubator.vector
+Generating 1000000000 salary records...
+Vector species: Species[float, 4, S_128_BIT]
+Vector length: 4
+
+Java 17 - Vector API implementation
+
+Java 17 - Scalar implementation
+
+=== Results ===
+Vector result: $17592186044416.00
+Scalar result: $90001634947924.60
+Vector time: 151.542125 ms
+Scalar time: 580.961375 ms
+Speedup: 3.83x
+Vector throughput: 6598.83 million records/sec

@@ -1,0 +1,4 @@
+Generating 1000000000 salary records...
+Exception in thread "main" java.lang.OutOfMemoryError: Java heap space
+	at SalarySumJava8.generateSalaryData(SalarySumJava8.java:12)
+	at SalarySumJava8.main(SalarySumJava8.java:23)
