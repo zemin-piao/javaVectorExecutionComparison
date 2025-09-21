@@ -161,6 +161,25 @@ for (i = 0; i < bound; i += 4 * vectorLength) {
 - Improved CPU pipeline utilization
 - Result: Additional 2x speedup over basic vectorization
 
+### Cross-Platform Portability Advantage
+
+**The Vector API's key benefit**: **"Write Once, Optimize Everywhere"**
+
+```java
+// Single source code automatically optimizes for different hardware:
+FloatVector result = a.add(b);
+```
+
+**Same bytecode becomes:**
+- **Intel AVX-512**: 16 floats per instruction
+- **Intel AVX2**: 8 floats per instruction
+- **ARM NEON**: 4 floats per instruction
+- **Legacy CPU**: Scalar fallback
+
+**vs. Native SIMD**: Requires separate implementations for each architecture.
+
+**Production impact**: Single JAR deploys optimally across diverse infrastructure (Intel servers, ARM cloud, edge devices) without architecture-specific builds or expertise.
+
 ---
 
 ## Key Takeaways
