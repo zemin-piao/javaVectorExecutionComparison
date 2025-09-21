@@ -9,6 +9,58 @@ This study compares the performance of SQL-style aggregation (`SELECT SUM(salary
 - Java 25 unrolled vectors achieve **16.7 billion records/sec**
 - Performance gains are sustained even at 1 billion record scale
 - **Vector API precision differences (~0.4% error)** are due to SIMD floating-point operation reordering
+- **Scalar performance is identical** across Java 8, 17, and 25 when using identical datasets
+- **JIT compilation is essential** - Vector API is 2,000x slower without JIT optimization
+
+---
+
+## Controlled Benchmark Results (Identical Dataset)
+
+To eliminate data generation variability and properly validate correctness, we ran controlled experiments using identical datasets across all Java versions.
+
+### Test Configuration
+- **Dataset**: 100M records (~381MB)
+- **Seed**: Fixed at 12345 for reproducibility
+- **Identical data** across all benchmarks
+- **Warm-up**: 10 iterations per implementation
+
+### Results with Identical Dataset
+
+| Java Version | Implementation | Time (ms) | Speedup | Throughput (M/sec) | Result ($) | Error vs Scalar |
+|-------------|----------------|-----------|---------|-------------------|------------|-----------------|
+| **Java 8**  | Scalar         | 51.5      | 1.0x    | 1,942             | 9,000,769,901,227 | **0.000%** ✅ |
+| **Java 17** | Scalar         | 53.9      | 1.0x    | 1,856             | 9,000,769,901,227 | **0.000%** ✅ |
+| **Java 17** | Vector         | 12.1      | **4.46x** | 8,301           | 8,960,158,466,048 | **0.451%** ⚠️ |
+| **Java 17** | Unrolled       | 6.0       | **8.98x** | 16,673          | 8,967,254,179,840 | **0.372%** ⚠️ |
+| **Java 25** | Scalar         | 52.2      | 1.0x    | 1,915             | 9,000,769,901,227 | **0.000%** ✅ |
+| **Java 25** | Vector         | 12.1      | **4.32x** | 8,260           | 8,960,158,466,048 | **0.451%** ⚠️ |
+| **Java 25** | Unrolled       | 5.9       | **8.84x** | 16,898          | 8,967,254,179,840 | **0.372%** ⚠️ |
+
+### Key Findings
+
+#### ✅ **Scalar Performance Consistency**
+- **Identical results** across all Java versions: `$9,000,769,901,226.57`
+- **Similar performance**: ~52ms, ~1,900 M records/sec
+- **JVM optimization equivalent** for scalar code across Java 8, 17, and 25
+
+#### ⚠️ **Vector API Precision Differences Explained**
+- **0.4% precision difference** due to SIMD floating-point operation reordering
+- **Consistent across Java 17 and 25** - inherent SIMD behavior, not a bug
+- **SIMD parallel lanes** accumulate differently than sequential scalar operations
+- **Trade-off**: Performance vs precision determinism
+
+#### 🚀 **Performance Gains Validated**
+- **Vector API**: Consistent **4.3-4.5x speedup** across Java versions
+- **Unrolled vectors**: Consistent **8.8-9.0x speedup** across Java versions
+- **Performance benefits are reproducible** with identical datasets
+
+#### 💡 **Production Guidance**
+Vector API precision differences are **expected SIMD behavior**, not implementation flaws.
+
+**Use Cases**:
+- **Financial/accounting**: Scalar implementations for deterministic precision
+- **Scientific/ML**: Vector API acceptable - 0.4% tolerance with 4-9x speedup
+- **Real-time processing**: Vector API preferred for performance-critical paths
 
 ---
 
@@ -142,56 +194,6 @@ for (i = 0; i < bound; i += 4 * vectorLength) {
 - 128-bit SIMD (4 floats)
 - Excellent vector performance
 - Good memory bandwidth utilization
-
----
-
-## Controlled Benchmark Results (Identical Dataset)
-
-To eliminate data generation variability and properly validate correctness, we ran controlled experiments using identical datasets across all Java versions.
-
-### Test Configuration
-- **Dataset**: 100M records (~381MB)
-- **Seed**: Fixed at 12345 for reproducibility
-- **Identical data** across all benchmarks
-- **Warm-up**: 10 iterations per implementation
-
-### Results with Identical Dataset
-
-| Java Version | Implementation | Time (ms) | Speedup | Throughput (M/sec) | Result ($) | Error vs Scalar |
-|-------------|----------------|-----------|---------|-------------------|------------|-----------------|
-| **Java 8**  | Scalar         | 51.5      | 1.0x    | 1,942             | 9,000,769,901,227 | **0.000%** ✅ |
-| **Java 17** | Scalar         | 53.9      | 1.0x    | 1,856             | 9,000,769,901,227 | **0.000%** ✅ |
-| **Java 17** | Vector         | 12.1      | **4.46x** | 8,301           | 8,960,158,466,048 | **0.451%** ⚠️ |
-| **Java 17** | Unrolled       | 6.0       | **8.98x** | 16,673          | 8,967,254,179,840 | **0.372%** ⚠️ |
-| **Java 25** | Scalar         | 52.2      | 1.0x    | 1,915             | 9,000,769,901,227 | **0.000%** ✅ |
-| **Java 25** | Vector         | 12.1      | **4.32x** | 8,260           | 8,960,158,466,048 | **0.451%** ⚠️ |
-| **Java 25** | Unrolled       | 5.9       | **8.84x** | 16,898          | 8,967,254,179,840 | **0.372%** ⚠️ |
-
-### Key Findings
-
-#### ✅ **Scalar Performance Consistency**
-- **Identical results** across all Java versions: `$9,000,769,901,226.57`
-- **Similar performance**: ~52ms, ~1,900 M records/sec
-- **JVM optimization equivalent** for scalar code across Java 8, 17, and 25
-
-#### ⚠️ **Vector API Precision Differences Explained**
-- **0.4% precision difference** due to SIMD floating-point operation reordering
-- **Consistent across Java 17 and 25** - inherent SIMD behavior, not a bug
-- **SIMD parallel lanes** accumulate differently than sequential scalar operations
-- **Trade-off**: Performance vs precision determinism
-
-#### 🚀 **Performance Gains Validated**
-- **Vector API**: Consistent **4.3-4.5x speedup** across Java versions
-- **Unrolled vectors**: Consistent **8.8-9.0x speedup** across Java versions
-- **Performance benefits are reproducible** with identical datasets
-
-#### 💡 **Production Guidance**
-Vector API precision differences are **expected SIMD behavior**, not implementation flaws.
-
-**Use Cases**:
-- **Financial/accounting**: Scalar implementations for deterministic precision
-- **Scientific/ML**: Vector API acceptable - 0.4% tolerance with 4-9x speedup
-- **Real-time processing**: Vector API preferred for performance-critical paths
 
 ---
 
