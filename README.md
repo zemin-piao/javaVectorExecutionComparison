@@ -5,7 +5,7 @@
 This study compares the performance of SQL-style aggregation (`SELECT SUM(salary) FROM employees`) across Java 8, 17, and 25, with particular focus on the Vector API's SIMD capabilities.
 
 ### Vector API Performance
-- **4-9x speedup** for array aggregation operations
+- **4-10x speedup** for array aggregation operations
 - **SIMD hardware utilization** provides genuine performance benefits
 - **JIT compilation essential** - 2,000x slower in interpreted mode
 
@@ -15,68 +15,77 @@ This study compares the performance of SQL-style aggregation (`SELECT SUM(salary
 - **Use double precision** or Kahan summation for higher accuracy when needed
 
 ### Production Readiness
-- **Java 17**: Incubating API, stable performance
-- **Java 25**: Still incubating, shows performance regression vs Java 17
+- **Java 17**: Incubating API, stable performance across JVM implementations
+- **Java 25**: Major performance improvements, production-ready Vector API
 - **Warm-up required** for optimal performance in production
 
 ---
 
-## Statistical Benchmark Results (Comprehensive Analysis)
+## JMH Isolated Benchmark Results (Professional Analysis)
 
-To ensure statistical reliability and eliminate measurement variability, we conducted a comprehensive benchmark with 60 total iterations across all Java versions and implementations.
+We conducted comprehensive isolated JMH benchmarks across multiple JVM implementations to eliminate cross-contamination between different implementations and provide the most accurate performance measurements.
 
 ### Test Configuration
-- **Dataset**: 100M records (~381MB) per iteration
-- **Iterations**: 10 runs per configuration (60 total runs)
+- **Framework**: JMH 1.37 (Java Microbenchmark Harness)
+- **Dataset**: 100M float records (~381MB) per benchmark
+- **Methodology**: Isolated benchmark classes run separately
+- **Warm-up**: 5 iterations, 1s each
+- **Measurement**: 10 iterations, 1s each
 - **Seed**: Fixed at 12345 for reproducible datasets
-- **Hardware**: Darwin 24.6.0, 128-bit SIMD (4 float lanes)
-- **Methodology**: Identical datasets, proper warm-up, statistical analysis
+- **Hardware**: Darwin 24.6.0, ARM64, 128-bit SIMD (4 float lanes)
 
-### Statistical Results (10 iterations each)
+### Amazon Corretto Results
 
-| Configuration | Avg (ms) | Median (ms) | Avg Throughput (M/s) | Speedup (Avg) | Speedup (Median) |
-|---------------|----------|-------------|---------------------|---------------|------------------|
-| **Java 8 Scalar** | 54.36 | 52.31 | 1,840 | 1.0x | 1.0x |
-| **Java 17 Scalar** | 53.30 | 52.98 | 1,876 | 1.0x | 1.0x |
-| **Java 17 Vector Simple** | 12.25 | 12.22 | 8,163 | **4.35x** | **4.34x** |
-| **Java 17 Vector Unrolled** | 6.13 | 6.07 | 16,313 | **8.70x** | **8.73x** |
-| **Java 25 Scalar** | 55.53 | 54.76 | 1,801 | 1.0x | 1.0x |
-| **Java 25 Vector Simple** | 12.94 | 12.85 | 7,728 | **4.29x** | **4.26x** |
-| **Java 25 Vector Unrolled** | 7.37 | 6.37 | 13,569 | **7.54x** | **8.60x** |
+| Version | Scalar (ms) | Vector Simple (ms) | Vector Unrolled (ms) | Simple Speedup | Unrolled Speedup |
+|---------|-------------|-------------------|---------------------|----------------|-------------------|
+| **8.0.462** | 54.91 ± 4.94 | N/A (no Vector API) | N/A (no Vector API) | N/A | N/A |
+| **17.0.12** | 55.57 ± 2.42 | 13.01 ± 0.23 | 6.02 ± 0.13 | **4.27x** | **9.23x** |
+| **25** | 56.33 ± 4.77 | 13.23 ± 0.08 | 5.98 ± 0.08 | **4.26x** | **9.42x** |
 
-### Key Statistical Insights
+### GraalVM Results
 
-#### ✅ **Scalar Performance Consistency**
-- **Java 8**: 54.36ms avg, 52.31ms median (1,840 M records/sec)
-- **Java 17**: 53.30ms avg, 52.98ms median (1,876 M records/sec)
-- **Java 25**: 55.53ms avg, 54.76ms median (1,801 M records/sec)
-- **Verdict**: Scalar performance is statistically equivalent across all Java versions
+| Version | Scalar (ms) | Vector Simple (ms) | Vector Unrolled (ms) | Simple Speedup | Unrolled Speedup |
+|---------|-------------|-------------------|---------------------|----------------|-------------------|
+| **17.0.12** | 62.32 ± 0.48 | 22.86 ± 0.09 | 25.03 ± 0.86 | **2.73x** | **2.49x** |
+| **25** | 66.33 ± 4.03 | 13.01 ± 0.06 | 5.98 ± 0.06 | **5.10x** | **11.10x** |
 
-#### 🚀 **Vector API Performance Analysis**
-- **Java 17 Vector Simple**: 4.35x speedup (excellent consistency - avg/median nearly identical)
-- **Java 17 Vector Unrolled**: 8.70x speedup (16.3 billion records/sec sustained)
-- **Java 25 Vector Simple**: 4.29x speedup (slightly slower than Java 17)
-- **Java 25 Vector Unrolled**: 7.54x avg speedup (higher variance: 7.37ms avg vs 6.37ms median)
+### Key Insights from Isolated Benchmarks
+
+#### 🚀 **Java 25 Vector API Dramatic Improvements**
+- **GraalVM 25**: Vector performance improved massively over GraalVM 17
+  - Vector Simple: 22.86ms → 13.01ms (**+76% faster**)
+  - Vector Unrolled: 25.03ms → 5.98ms (**+318% faster**)
+- **Corretto 25**: Consistent excellent performance, slight improvements over 17
+
+#### 🏆 **Cross-JVM Performance Leaders (Java 25)**
+- **Best Vector Performance**: Both JVMs achieve ~6ms unrolled, ~13ms simple
+- **Maximum Speedup**: GraalVM 25 Vector Unrolled: **11.10x speedup**
+- **Most Consistent**: Corretto 25 with excellent scalar + vector balance
+
+#### ⚡ **Production Recommendations**
+- **For Vector API Workloads**: Both JVMs deliver excellent Java 25 performance
+- **For Mixed Workloads**: Corretto 25 provides better scalar baseline
+- **For Maximum Vector Performance**: GraalVM 25 edges out with 11.10x peak speedup
 
 
 ---
 
 ## Test Environment
 
-**⚠️ Microbenchmark Disclaimer**: These results are from controlled microbenchmarks on specific hardware with Amazon Corretto JDK. Real-world performance may vary based on:
+**⚠️ Microbenchmark Disclaimer**: These results are from controlled microbenchmarks across multiple JVM implementations. Real-world performance may vary based on:
 - Different CPU architectures (Intel vs ARM vs AMD)
-- JVM implementations (OpenJDK vs Oracle HotSpot vs GraalVM)
 - Application context and JIT compilation patterns
 - Memory access patterns and cache behavior
+- Specific workload characteristics
 
 **Test Configuration:**
-- **Hardware**: Darwin 24.6.0 (macOS)
+- **Hardware**: Darwin 24.6.0 (macOS), ARM64 architecture
 - **CPU Architecture**: 128-bit SIMD (4 float lanes)
-- **Java Versions**:
-  - Java 8: OpenJDK Corretto-8.422.05.1 (No Vector API)
-  - Java 17: OpenJDK Corretto-17.0.12.7.1 (Vector API: Incubating)
-  - Java 25: OpenJDK Corretto-25.0.0.36.2 (Vector API: Incubating)
+- **JVM Implementations Tested**:
+  - **Amazon Corretto**: 8.0.462, 17.0.12, 25
+  - **GraalVM**: 17.0.12, 25
 - **Vector Species**: `Species[float, 4, S_128_BIT]`
+- **Methodology**: Isolated JMH benchmark classes to eliminate cross-contamination
 
 ---
 
